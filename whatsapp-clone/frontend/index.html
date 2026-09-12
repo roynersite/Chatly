@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp Clone</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- Socket.io -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <!-- Pantalla de Login -->
+    <div id="login-screen" class="login-screen">
+        <div class="login-container">
+            <div class="login-logo">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+                <h1>WhatsApp Web</h1>
+                <p>Clone</p>
+            </div>
+            
+            <div class="login-options">
+                <div class="login-option" id="google-login">
+                    <img src="https://www.google.com/favicon.ico" alt="Google">
+                    <span>Continuar con Google</span>
+                </div>
+                
+                <div class="divider">
+                    <span>O</span>
+                </div>
+                
+                <div class="phone-login">
+                    <div class="phone-input-container">
+                        <select id="country-code">
+                            <option value="+1">🇺🇸 +1</option>
+                            <option value="+34">🇪🇸 +34</option>
+                            <option value="+52">🇲🇽 +52</option>
+                            <option value="+54">🇦🇷 +54</option>
+                            <option value="+55">🇧🇷 +55</option>
+                            <option value="+57">🇨🇴 +57</option>
+                            <option value="+58">🇻🇪 +58</option>
+                            <option value="+51">🇵🇪 +51</option>
+                            <option value="+56">🇨🇱 +56</option>
+                            <option value="+593">🇪🇨 +593</option>
+                        </select>
+                        <input type="tel" id="phone-input" placeholder="Número de teléfono">
+                    </div>
+                    <button id="send-code-btn" class="btn-primary">Enviar código</button>
+                </div>
+                
+                <div id="verification-container" class="verification-container hidden">
+                    <input type="text" id="verification-code" placeholder="Código de verificación" maxlength="6">
+                    <button id="verify-code-btn" class="btn-primary">Verificar</button>
+                </div>
+            </div>
+            
+            <div id="recaptcha-container"></div>
+        </div>
+    </div>
+
+    <!-- Pantalla Principal de Chat -->
+    <div id="chat-screen" class="chat-screen hidden">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <!-- Header -->
+            <div class="sidebar-header">
+                <div class="user-avatar">
+                    <img id="user-photo" src="" alt="Usuario">
+                </div>
+                <div class="header-actions">
+                    <button class="icon-btn" id="new-chat-btn" title="Nuevo chat">
+                        <svg viewBox="0 0 24 24"><path d="M19.005 3.175H4.674C3.642 3.175 3 3.789 3 4.821V20.02c0 1.178.756 1.995 2.023 1.995h11.253c.98 0 1.824-.817 1.824-1.995V6.876c0-1.178-.844-2.054-1.824-2.054zm-2.023 10.574h-3.898v3.898h-2.054v-3.898H7.132V11.72h3.898V7.822h2.054v3.898h3.898v1.995z"/></svg>
+                    </button>
+                    <button class="icon-btn" id="menu-btn" title="Menú">
+                        <svg viewBox="0 0 24 24"><path d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 7a2 2 0 1 0-.001 4.001A2 2 0 0 0 12 14zm0 7a2 2 0 1 0-.001 4.001A2 2 0 0 0 12 21z"/></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Search -->
+            <div class="search-container">
+                <div class="search-box">
+                    <svg class="search-icon" viewBox="0 0 24 24"><path d="M15.009 13.805h-.636l-.22-.22a5.185 5.185 0 0 0 1.256-3.396 5.197 5.197 0 1 0-5.197 5.197 5.185 5.185 0 0 0 3.396-1.256l.22.22v.636l4.007 4.002 1.194-1.191-4.002-4.007zm-5.197 0a3.604 3.604 0 1 1 0-7.209 3.604 3.604 0 0 1 0 7.209z"/></svg>
+                    <input type="text" id="search-input" placeholder="Buscar o empezar un chat nuevo">
+                </div>
+            </div>
+            
+            <!-- Chat List -->
+            <div class="chat-list" id="chat-list">
+                <!-- Los chats se cargarán dinámicamente -->
+            </div>
+        </div>
+        
+        <!-- Chat Area -->
+        <div class="chat-area">
+            <!-- Empty State -->
+            <div id="empty-state" class="empty-state">
+                <div class="empty-content">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/6/6b/WhatsApp.svg" alt="WhatsApp">
+                    <h2>Mantén tu teléfono conectado</h2>
+                    <p>WhatsApp Clone se conecta a tu teléfono para sincronizar los mensajes.</p>
+                    <div class="encryption-notice">
+                        <svg viewBox="0 0 24 24"><path d="M17.664 3.23c.153 0 .305.038.441.114l3.114 1.758c.479.27.771.773.771 1.316v8.163c0 .543-.292 1.046-.771 1.316l-3.114 1.758a.886.886 0 0 1-.883 0l-3.114-1.758a1.493 1.493 0 0 1-.771-1.316V6.418c0-.543.292-1.046.771-1.316l3.114-1.758a.886.886 0 0 1 .441-.114zm0 1.5l-3.114 1.758v8.163l3.114 1.758 3.114-1.758V6.488l-3.114-1.758zM12.336 5.73c.153 0 .305.038.441.114l3.114 1.758c.479.27.771.773.771 1.316v8.163c0 .543-.292 1.046-.771 1.316l-3.114 1.758a.886.886 0 0 1-.883 0l-3.114-1.758a1.493 1.493 0 0 1-.771-1.316V8.918c0-.543.292-1.046.771-1.316l3.114-1.758a.886.886 0 0 1 .441-.114zm0 1.5l-3.114 1.758v8.163l3.114 1.758 3.114-1.758V8.988l-3.114-1.758zM7.008 8.23c.153 0 .305.038.441.114l3.114 1.758c.479.27.771.773.771 1.316v8.163c0 .543-.292 1.046-.771 1.316l-3.114 1.758a.886.886 0 0 1-.883 0l-3.114-1.758a1.493 1.493 0 0 1-.771-1.316v-8.163c0-.543.292-1.046.771-1.316l3.114-1.758a.886.886 0 0 1 .441-.114zm0 1.5l-3.114 1.758v8.163l3.114 1.758 3.114-1.758v-8.163l-3.114-1.758z"/></svg>
+                        <span>Tus mensajes personales están cifrados de extremo a extremo</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Active Chat -->
+            <div id="active-chat" class="active-chat hidden">
+                <!-- Chat Header -->
+                <div class="chat-header">
+                    <div class="contact-info">
+                        <div class="contact-avatar">
+                            <img id="chat-contact-photo" src="" alt="Contacto">
+                        </div>
+                        <div class="contact-details">
+                            <h3 id="chat-contact-name"></h3>
+                            <span id="chat-contact-status" class="status-text"></span>
+                        </div>
+                    </div>
+                    <div class="chat-actions">
+                        <button class="icon-btn" title="Buscar">
+                            <svg viewBox="0 0 24 24"><path d="M15.009 13.805h-.636l-.22-.22a5.185 5.185 0 0 0 1.256-3.396 5.197 5.197 0 1 0-5.197 5.197 5.185 5.185 0 0 0 3.396-1.256l.22.22v.636l4.007 4.002 1.194-1.191-4.002-4.007zm-5.197 0a3.604 3.604 0 1 1 0-7.209 3.604 3.604 0 0 1 0 7.209z"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Adjuntar">
+                            <svg viewBox="0 0 24 24"><path d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 0 0 3.972-1.646l9.226-9.219a3.94 3.94 0 0 0 1.156-2.788 3.94 3.94 0 0 0-1.156-2.788 3.94 3.94 0 0 0-2.788-1.156 3.94 3.94 0 0 0-2.788 1.156l-9.22 9.219a3.94 3.94 0 0 0-1.157 2.788 3.94 3.94 0 0 0 1.157 2.788l6.351 6.344a1.166 1.166 0 0 0 1.656 0 1.172 1.172 0 0 0 0-1.657l-6.344-6.35a1.61 1.61 0 0 1 0-2.28 1.61 1.61 0 0 1 2.28 0l9.226 9.219a1.61 1.61 0 0 1 0 2.28 1.61 1.61 0 0 1-2.28 0l-6.351-6.344a3.94 3.94 0 0 0-2.788-1.156 3.94 3.94 0 0 0-2.788 1.156 3.94 3.94 0 0 0-1.156 2.788z"/></svg>
+                        </button>
+                        <button class="icon-btn" title="Menú">
+                            <svg viewBox="0 0 24 24"><path d="M12 7a2 2 0 1 0-.001-4.001A2 2 0 0 0 12 7zm0 7a2 2 0 1 0-.001 4.001A2 2 0 0 0 12 14zm0 7a2 2 0 1 0-.001 4.001A2 2 0 0 0 12 21z"/></svg>
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Messages Container -->
+                <div class="messages-container" id="messages-container">
+                    <!-- Los mensajes se cargarán dinámicamente -->
+                </div>
+                
+                <!-- Input Area -->
+                <div class="input-area">
+                    <button class="icon-btn emoji-btn" title="Emoji">
+                        <svg viewBox="0 0 24 24"><path d="M12 2C6.486 2 2 6.486 2 12s4.486 10 10 10 10-4.486 10-10S17.514 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-3.5-9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm7 0a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3zm-7.5 3.5c.003.14.03.277.078.408.148.408.557.692 1.003.692h6.838c.446 0 .855-.284 1.003-.692a1.497 1.497 0 0 0 .078-.408c0-.828-1.12-1.5-2.5-1.5s-2.5.672-2.5 1.5c0 .14.03.277.078.408.148.408.557.692 1.003.692h.838c.446 0 .855-.284 1.003-.692a1.497 1.497 0 0 0 .078-.408c0-.828-1.12-1.5-2.5-1.5s-2.5.672-2.5 1.5z"/></svg>
+                    </button>
+                    <button class="icon-btn attach-btn" title="Adjuntar">
+                        <svg viewBox="0 0 24 24"><path d="M1.816 15.556v.002c0 1.502.584 2.912 1.646 3.972s2.472 1.647 3.974 1.647a5.58 5.58 0 0 0 3.972-1.646l9.226-9.219a3.94 3.94 0 0 0 1.156-2.788 3.94 3.94 0 0 0-1.156-2.788 3.94 3.94 0 0 0-2.788-1.156 3.94 3.94 0 0 0-2.788 1.156l-9.22 9.219a3.94 3.94 0 0 0-1.157 2.788 3.94 3.94 0 0 0 1.157 2.788l6.351 6.344a1.166 1.166 0 0 0 1.656 0 1.172 1.172 0 0 0 0-1.657l-6.344-6.35a1.61 1.61 0 0 1 0-2.28 1.61 1.61 0 0 1 2.28 0l9.226 9.219a1.61 1.61 0 0 1 0 2.28 1.61 1.61 0 0 1-2.28 0l-6.351-6.344a3.94 3.94 0 0 0-2.788-1.156 3.94 3.94 0 0 0-2.788 1.156 3.94 3.94 0 0 0-1.156 2.788z"/></svg>
+                    </button>
+                    <div class="message-input-container">
+                        <input type="text" id="message-input" placeholder="Escribe un mensaje aquí">
+                    </div>
+                    <button class="icon-btn voice-btn" id="send-btn" title="Enviar">
+                        <svg viewBox="0 0 24 24"><path d="M1.101 21.757L23.8 12.028 1.101 2.3l.011 7.912 13.623 1.816-13.623 1.817-.011 7.912z"/></svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para nuevo chat -->
+    <div id="new-chat-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Nuevo chat</h2>
+                <button class="close-btn" id="close-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="search-box">
+                    <input type="text" id="search-users" placeholder="Buscar por número de teléfono">
+                </div>
+                <div id="search-results" class="search-results"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
