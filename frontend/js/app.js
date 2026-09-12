@@ -1,11 +1,21 @@
-// Configuración de Firebase - REEMPLAZA CON TUS PROPIAS CREDENCIALES
+// ==========================================
+// CONFIGURACIÓN - REEMPLAZA CON TU URL
+// ==========================================
+const API_BASE_URL = 'https://whatsapp-api-74.220.48.0/24.onrender.com'; // ← TU URL DE RENDER
+// const API_BASE_URL = 'http://localhost:5000'; // Para pruebas locales
+
+const API_URL = `${API_BASE_URL}/api`;
+
+// ==========================================
+// FIREBASE CONFIG - REEMPLAZA CON TUS DATOS
+// ==========================================
 const firebaseConfig = {
-    apiKey: "TU_API_KEY",
-    authDomain: "TU_PROYECTO.firebaseapp.com",
-    projectId: "TU_PROYECTO",
-    storageBucket: "TU_PROYECTO.appspot.com",
-    messagingSenderId: "TU_SENDER_ID",
-    appId: "TU_APP_ID"
+    apiKey: "AIzaSyXXXXXXXXXXXXXXXXXXXXXXX",
+    authDomain: "tu-proyecto.firebaseapp.com",
+    projectId: "tu-proyecto",
+    storageBucket: "tu-proyecto.appspot.com",
+    messagingSenderId: "123456789",
+    appId: "1:123456789:web:abcdef123456"
 };
 
 // Inicializar Firebase
@@ -25,12 +35,9 @@ const emptyState = document.getElementById('empty-state');
 const activeChat = document.getElementById('active-chat');
 const loadingOverlay = document.getElementById('loading-overlay');
 
-// API URL
-const API_URL = 'http://localhost:5000/api';
-
-// ==================== AUTENTICACIÓN ====================
-
-// Login con Google
+// ==========================================
+// AUTENTICACIÓN CON GOOGLE
+// ==========================================
 document.getElementById('google-login').addEventListener('click', async () => {
     showLoading();
     try {
@@ -39,13 +46,15 @@ document.getElementById('google-login').addEventListener('click', async () => {
         await handleAuthSuccess(result.user);
     } catch (error) {
         console.error('Error Google login:', error);
-        alert('Error al iniciar sesión con Google: ' + error.message);
+        alert('Error al iniciar sesión: ' + error.message);
     } finally {
         hideLoading();
     }
 });
 
-// Login con teléfono
+// ==========================================
+// AUTENTICACIÓN CON TELÉFONO
+// ==========================================
 let confirmationResult = null;
 
 document.getElementById('send-code-btn').addEventListener('click', async () => {
@@ -54,7 +63,7 @@ document.getElementById('send-code-btn').addEventListener('click', async () => {
     const phoneNumber = countryCode.value + phoneInput.value.replace(/\s/g, '');
     
     if (!phoneInput.value) {
-        alert('Por favor ingresa un número de teléfono');
+        alert('Ingresa un número de teléfono');
         return;
     }
     
@@ -69,9 +78,9 @@ document.getElementById('send-code-btn').addEventListener('click', async () => {
         document.getElementById('verification-container').classList.remove('hidden');
         document.querySelector('.phone-login').classList.add('hidden');
         
-        alert('Código enviado. Por favor revisa tu teléfono.');
+        alert('Código enviado a tu teléfono');
     } catch (error) {
-        console.error('Error enviando código:', error);
+        console.error('Error:', error);
         alert('Error: ' + error.message);
     } finally {
         hideLoading();
@@ -82,7 +91,7 @@ document.getElementById('verify-code-btn').addEventListener('click', async () =>
     const code = document.getElementById('verification-code').value;
     
     if (!code || code.length !== 6) {
-        alert('Por favor ingresa el código de 6 dígitos');
+        alert('Ingresa el código de 6 dígitos');
         return;
     }
     
@@ -91,21 +100,21 @@ document.getElementById('verify-code-btn').addEventListener('click', async () =>
         const result = await confirmationResult.confirm(code);
         await handleAuthSuccess(result.user);
     } catch (error) {
-        console.error('Error verificando código:', error);
-        alert('Código incorrecto: ' + error.message);
+        alert('Código incorrecto');
     } finally {
         hideLoading();
     }
 });
 
-// Manejar autenticación exitosa
+// ==========================================
+// MANEJAR LOGIN EXITOSO
+// ==========================================
 async function handleAuthSuccess(firebaseUser) {
     try {
-        // Obtener token de Firebase
         const token = await firebaseUser.getIdToken();
         localStorage.setItem('auth_token', token);
         
-        // Verificar/crear usuario en el backend
+        // LLAMADA REAL A LA API
         const response = await fetch(`${API_URL}/auth/verify`, {
             method: 'POST',
             headers: {
@@ -121,62 +130,235 @@ async function handleAuthSuccess(firebaseUser) {
             })
         });
         
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         currentUser = data.user;
         
-        // Inicializar Socket.io
+        // Conectar WebSocket
         initializeSocket(token);
         
-        // Mostrar pantalla de chat
         showChatScreen();
-        
-        // Cargar conversaciones
         loadConversations();
         
     } catch (error) {
         console.error('Error:', error);
-        alert('Error al inicializar: ' + error.message);
+        alert('Error de conexión con el servidor: ' + error.message);
     }
 }
 
-// ==================== SOCKET.IO ====================
-
+// ==========================================
+// WEBSOCKET (SOCKET.IO)
+// ==========================================
 function initializeSocket(token) {
-    socket = io('http://localhost:5000', {
-        auth: { token }
+    // Conectar al backend real
+    socket = io(API_BASE_URL, {
+        auth: { token },
+        transports: ['websocket', 'polling']
     });
     
     socket.on('connect', () => {
-        console.log('Conectado al servidor');
+        console.log('✅ Conectado al servidor:', API_BASE_URL);
+    });
+    
+    socket.on('connect_error', (error) => {
+        console.error('❌ Error de conexión:', error);
     });
     
     socket.on('new_message', (message) => {
-        // Agregar mensaje a la conversación actual
         if (currentChat && 
             (message.sender._id === currentChat._id || 
              message.receiver._id === currentChat._id)) {
             addMessageToChat(message);
         }
-        // Actualizar lista de chats
         loadConversations();
     });
     
     socket.on('user_status', (data) => {
         updateUserStatus(data);
     });
-    
-    socket.on('user_typing', (data) => {
-        showTypingIndicator(data);
-    });
 }
 
-// ==================== UI FUNCTIONS ====================
+// ==========================================
+// CARGAR CONVERSACIONES
+// ==========================================
+async function loadConversations() {
+    try {
+        const token = localStorage.getItem('auth_token');
+        
+        // LLAMADA REAL A LA API
+        const response = await fetch(`${API_URL}/conversations`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error cargando conversaciones');
+        }
+        
+        conversations = await response.json();
+        renderChatList();
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
 
+// ==========================================
+// ABRIR CHAT
+// ==========================================
+async function openChat(contact) {
+    currentChat = contact;
+    
+    document.querySelectorAll('.chat-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    document.querySelector(`[data-user-id="${contact._id}"]`)?.classList.add('active');
+    
+    emptyState.classList.add('hidden');
+    activeChat.classList.remove('hidden');
+    
+    document.getElementById('chat-contact-photo').src = contact.photoURL || 
+        'https://via.placeholder.com/40';
+    document.getElementById('chat-contact-name').textContent = contact.displayName;
+    document.getElementById('chat-contact-status').textContent = 
+        contact.isOnline ? 'En línea' : 'Última vez ' + formatLastSeen(contact.lastSeen);
+    
+    await loadMessages(contact._id);
+}
+
+// ==========================================
+// CARGAR MENSAJES
+// ==========================================
+async function loadMessages(userId) {
+    try {
+        const token = localStorage.getItem('auth_token');
+        
+        // LLAMADA REAL A LA API
+        const response = await fetch(`${API_URL}/messages/${userId}`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Error cargando mensajes');
+        }
+        
+        const messages = await response.json();
+        renderMessages(messages);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+// ==========================================
+// ENVIAR MENSAJE
+// ==========================================
+async function sendMessage() {
+    const input = document.getElementById('message-input');
+    const content = input.value.trim();
+    
+    if (!content || !currentChat) return;
+    
+    // Enviar por WebSocket (tiempo real)
+    if (socket) {
+        socket.emit('send_message', {
+            receiverId: currentChat._id,
+            content: content,
+            type: 'text'
+        });
+    }
+    
+    // También enviar por HTTP como respaldo
+    try {
+        const token = localStorage.getItem('auth_token');
+        
+        // LLAMADA REAL A LA API
+        await fetch(`${API_URL}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                receiverId: currentChat._id,
+                content: content,
+                type: 'text'
+            })
+        });
+    } catch (error) {
+        console.error('Error enviando:', error);
+    }
+    
+    // Mostrar localmente
+    const tempMessage = {
+        sender: { _id: currentUser._id },
+        content: content,
+        createdAt: new Date(),
+        read: false
+    };
+    addMessageToChat(tempMessage);
+    
+    input.value = '';
+}
+
+// ==========================================
+// BUSCAR USUARIOS
+// ==========================================
+document.getElementById('search-users').addEventListener('input', debounce(async (e) => {
+    const query = e.target.value;
+    if (query.length < 3) return;
+    
+    try {
+        const token = localStorage.getItem('auth_token');
+        
+        // LLAMADA REAL A LA API
+        const response = await fetch(`${API_URL}/users/search?phone=${query}`, {
+            headers: { 
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        const users = await response.json();
+        renderSearchResults(users);
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}, 500));
+
+// ==========================================
+// AGREGAR CONTACTO
+// ==========================================
+async function addContact(userId) {
+    try {
+        const token = localStorage.getItem('auth_token');
+        
+        // LLAMADA REAL A LA API
+        await fetch(`${API_URL}/users/contacts`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ userId })
+        });
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+// ==========================================
+// FUNCIONES AUXILIARES
+// ==========================================
 function showChatScreen() {
     loginScreen.classList.add('hidden');
     chatScreen.classList.remove('hidden');
-    
-    // Actualizar UI con datos del usuario
     document.getElementById('user-photo').src = currentUser.photoURL || 
         'https://via.placeholder.com/40';
 }
@@ -189,24 +371,6 @@ function hideLoading() {
     loadingOverlay.classList.add('hidden');
 }
 
-// ==================== CHAT FUNCTIONS ====================
-
-// Cargar conversaciones
-async function loadConversations() {
-    try {
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`${API_URL}/conversations`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        conversations = await response.json();
-        renderChatList();
-    } catch (error) {
-        console.error('Error cargando conversaciones:', error);
-    }
-}
-
-// Renderizar lista de chats
 function renderChatList() {
     const chatList = document.getElementById('chat-list');
     chatList.innerHTML = '';
@@ -243,46 +407,6 @@ function renderChatList() {
     });
 }
 
-// Abrir chat
-async function openChat(contact) {
-    currentChat = contact;
-    
-    // Actualizar UI
-    document.querySelectorAll('.chat-item').forEach(item => {
-        item.classList.remove('active');
-    });
-    document.querySelector(`[data-user-id="${contact._id}"]`)?.classList.add('active');
-    
-    emptyState.classList.add('hidden');
-    activeChat.classList.remove('hidden');
-    
-    // Actualizar header del chat
-    document.getElementById('chat-contact-photo').src = contact.photoURL || 
-        'https://via.placeholder.com/40';
-    document.getElementById('chat-contact-name').textContent = contact.displayName;
-    document.getElementById('chat-contact-status').textContent = 
-        contact.isOnline ? 'En línea' : 'Última vez ' + formatLastSeen(contact.lastSeen);
-    
-    // Cargar mensajes
-    await loadMessages(contact._id);
-}
-
-// Cargar mensajes
-async function loadMessages(userId) {
-    try {
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`${API_URL}/messages/${userId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const messages = await response.json();
-        renderMessages(messages);
-    } catch (error) {
-        console.error('Error cargando mensajes:', error);
-    }
-}
-
-// Renderizar mensajes
 function renderMessages(messages) {
     const container = document.getElementById('messages-container');
     container.innerHTML = '';
@@ -291,11 +415,9 @@ function renderMessages(messages) {
         addMessageToChat(msg, false);
     });
     
-    // Scroll al final
     container.scrollTop = container.scrollHeight;
 }
 
-// Agregar mensaje al chat
 function addMessageToChat(message, append = true) {
     const container = document.getElementById('messages-container');
     const isSent = message.sender._id === currentUser._id || 
@@ -327,63 +449,6 @@ function addMessageToChat(message, append = true) {
     }
 }
 
-// Enviar mensaje
-document.getElementById('send-btn').addEventListener('click', sendMessage);
-document.getElementById('message-input').addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-});
-
-async function sendMessage() {
-    const input = document.getElementById('message-input');
-    const content = input.value.trim();
-    
-    if (!content || !currentChat) return;
-    
-    // Emitir a través de Socket.io para tiempo real
-    socket.emit('send_message', {
-        receiverId: currentChat._id,
-        content: content,
-        type: 'text'
-    });
-    
-    // Agregar mensaje localmente inmediatamente
-    const tempMessage = {
-        sender: { _id: currentUser._id },
-        content: content,
-        createdAt: new Date(),
-        read: false
-    };
-    addMessageToChat(tempMessage);
-    
-    input.value = '';
-}
-
-// Buscar usuarios
-document.getElementById('new-chat-btn').addEventListener('click', () => {
-    document.getElementById('new-chat-modal').classList.remove('hidden');
-});
-
-document.getElementById('close-modal').addEventListener('click', () => {
-    document.getElementById('new-chat-modal').classList.add('hidden');
-});
-
-document.getElementById('search-users').addEventListener('input', debounce(async (e) => {
-    const query = e.target.value;
-    if (query.length < 3) return;
-    
-    try {
-        const token = localStorage.getItem('auth_token');
-        const response = await fetch(`${API_URL}/users/search?phone=${query}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        const users = await response.json();
-        renderSearchResults(users);
-    } catch (error) {
-        console.error('Error buscando usuarios:', error);
-    }
-}, 500));
-
 function renderSearchResults(users) {
     const container = document.getElementById('search-results');
     container.innerHTML = '';
@@ -408,24 +473,6 @@ function renderSearchResults(users) {
         container.appendChild(div);
     });
 }
-
-async function addContact(userId) {
-    try {
-        const token = localStorage.getItem('auth_token');
-        await fetch(`${API_URL}/users/contacts`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ userId })
-        });
-    } catch (error) {
-        console.error('Error agregando contacto:', error);
-    }
-}
-
-// ==================== UTILIDADES ====================
 
 function formatLastSeen(date) {
     const d = new Date(date);
@@ -467,28 +514,18 @@ function updateUserStatus(data) {
     }
 }
 
-function showTypingIndicator(data) {
-    if (currentChat && currentChat._id === data.userId) {
-        const statusEl = document.getElementById('chat-contact-status');
-        if (data.isTyping) {
-            statusEl.textContent = 'Escribiendo...';
-        } else {
-            statusEl.textContent = data.isOnline ? 'En línea' : 'Desconectado';
-        }
-    }
-}
+// Event Listeners
+document.getElementById('send-btn').addEventListener('click', sendMessage);
+document.getElementById('message-input').addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+});
 
-// Detectar escritura
-let typingTimeout;
-document.getElementById('message-input').addEventListener('input', () => {
-    if (!currentChat || !socket) return;
-    
-    socket.emit('typing', { receiverId: currentChat._id, isTyping: true });
-    
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-        socket.emit('typing', { receiverId: currentChat._id, isTyping: false });
-    }, 1000);
+document.getElementById('new-chat-btn').addEventListener('click', () => {
+    document.getElementById('new-chat-modal').classList.remove('hidden');
+});
+
+document.getElementById('close-modal').addEventListener('click', () => {
+    document.getElementById('new-chat-modal').classList.add('hidden');
 });
 
 // Verificar sesión al cargar
