@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chatly</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+
+    body {
+      background-color: #d1d7db;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .app-container {
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      background-color: #fff;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.1);
+    }
+
+    /* Modales de Autenticación */
+    .auth-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: #00a884;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .auth-card {
+      background: white;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      width: 360px;
+      text-align: center;
+    }
+
+    .auth-card h2 {
+      color: #111b21;
+      margin-bottom: 20px;
+    }
+
+    .auth-btn {
+      width: 100%;
+      padding: 12px;
+      margin: 8px 0;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .btn-google { background-color: #4285f4; color: white; }
+    .btn-phone { background-color: #00a884; color: white; }
+    .auth-input {
+      width: 100%;
+      padding: 10px;
+      margin: 8px 0;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    /* Sidebar (Lista de contactos/chats) */
+    .sidebar {
+      width: 30%;
+      border-right: 1px solid #e9edef;
+      display: flex;
+      flex-direction: column;
+      background: #fff;
+    }
+
+    .header {
+      height: 60px;
+      background: #f0f2f5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      border-bottom: 1px solid #e9edef;
+    }
+
+    .user-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #ccc;
+      object-fit: cover;
+    }
+
+    .contacts-list {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0f2f5;
+    }
+
+    .contact-item:hover {
+      background-color: #f5f6f6;
+    }
+
+    .contact-info {
+      margin-left: 15px;
+      flex: 1;
+    }
+
+    .contact-name {
+      font-weight: 600;
+      color: #111b21;
+    }
+
+    /* Chat Principal */
+    .chat-area {
+      width: 70%;
+      display: flex;
+      flex-direction: column;
+      background-color: #efeae2;
+      background-image: url("https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png");
+    }
+
+    .chat-header {
+      height: 60px;
+      background: #f0f2f5;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #e9edef;
+    }
+
+    .messages-container {
+      flex: 1;
+      padding: 20px 50px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .message {
+      max-width: 65%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 14px;
+      position: relative;
+      word-wrap: break-word;
+    }
+
+    .msg-sent {
+      background-color: #d9fdd3;
+      align-self: flex-end;
+    }
+
+    .msg-received {
+      background-color: #ffffff;
+      align-self: flex-start;
+    }
+
+    .chat-input-area {
+      height: 62px;
+      background: #f0f2f5;
+      display: flex;
+      align-items: center;
+      padding: 5px 16px;
+      gap: 10px;
+    }
+
+    .chat-input {
+      flex: 1;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 8px;
+      outline: none;
+      font-size: 15px;
+    }
+
+    .send-btn {
+      background: #00a884;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Modal de Autenticación -->
+  <div id="auth-modal" class="auth-overlay">
+    <div class="auth-card">
+      <h2>WhatsApp Web</h2>
+      <button class="auth-btn btn-google" onclick="loginWithGoogle()">Iniciar sesión con Google</button>
+      <hr style="margin: 15px 0;">
+      <p style="font-size: 14px; margin-bottom: 10px;">O mediante Teléfono:</p>
+      <input type="text" id="phone-number" class="auth-input" placeholder="+584120000000">
+      <div id="recaptcha-container"></div>
+      <button class="auth-btn btn-phone" onclick="sendOTP()">Enviar Código SMS</button>
+      
+      <div id="otp-section" class="hidden">
+        <input type="text" id="otp-code" class="auth-input" placeholder="Código SMS">
+        <button class="auth-btn btn-phone" onclick="verifyOTP()">Verificar Código</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Interfaz Principal de la App -->
+  <div class="app-container">
+    <!-- Panel Izquierdo -->
+    <div class="sidebar">
+      <div class="header">
+        <img id="my-avatar" class="user-avatar" src="https://via.placeholder.com/40" alt="Perfil">
+        <span id="my-name" style="font-weight: 600;">Usuario</span>
+        <button onclick="logout()" style="border:none; background:none; cursor:pointer; color:red;">Salir</button>
+      </div>
+      <div class="contacts-list" id="contacts-list">
+        <!-- Lista dinámica de usuarios registrados -->
+      </div>
+    </div>
+
+    <!-- Panel Derecho (Chat) -->
+    <div class="chat-area">
+      <div class="chat-header">
+        <img id="chat-avatar" class="user-avatar" src="https://via.placeholder.com/40" alt="Contacto">
+        <div style="margin-left: 15px;">
+          <div id="chat-title" style="font-weight: 600;">Selecciona un chat</div>
+        </div>
+      </div>
+
+      <div class="messages-container" id="messages-container">
+        <!-- Los mensajes en tiempo real aparecerán aquí -->
+      </div>
+
+      <div class="chat-input-area">
+        <input type="text" id="message-input" class="chat-input" placeholder="Escribe un mensaje aquí" onkeypress="handleKeyPress(event)">
+        <button class="send-btn" onclick="sendMessage()">➤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDKs (v9 Compat API para mayor facilidad) -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    // -------------------------------------------------------------
+    // CONFIGURACIÓN DE FIREBASE (Reemplaza con tus claves de Firebase Console)
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+  apiKey: "AIzaSyDtcUBfzdSAmBrFg4hsxt_ITwY9DP7Siyc",
+  authDomain: "chatly-1d1be.firebaseapp.com",
+  databaseURL: "https://chatly-1d1be-default-rtdb.firebaseio.com",
+  projectId: "chatly-1d1be",
+  storageBucket: "chatly-1d1be.firebasestorage.app",
+  messagingSenderId: "908535725784",
+  appId: "1:908535725784:web:086bbf3c2d87e8c3a321ad",
+  measurementId: "G-4FD5C2YCLY"
+};
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser = null;
+    let selectedUser = null;
+    let confirmationResult = null;
+    let unsubscribeMessages = null;
+
+    // -------------------------------------------------------------
+    // AUTENTICACIÓN
+    // -------------------------------------------------------------
+
+    // Configurar reCAPTCHA invisible para teléfono
+    window.onload = () => {
+      window.recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+        'size': 'invisible'
+      });
+    };
+
+    // Login con Google
+    function loginWithGoogle() {
+      const provider = new firebase.auth.GoogleAuthProvider();
+      auth.signInWithPopup(provider).catch(error => alert(error.message));
+    }
+
+    // Login con Teléfono (Paso 1: Enviar SMS)
+    function sendOTP() {
+      const phoneNumber = document.getElementById('phone-number').value;
+      const appVerifier = window.recaptchaVerifier;
+
+      auth.signInWithPhoneNumber(phoneNumber, appVerifier)
+        .then((result) => {
+          confirmationResult = result;
+          document.getElementById('otp-section').classList.remove('hidden');
+          alert('Código de verificación enviado.');
+        }).catch(error => alert(error.message));
+    }
+
+    // Login con Teléfono (Paso 2: Confirmar Código)
+    function verifyOTP() {
+      const code = document.getElementById('otp-code').value;
+      confirmationResult.confirm(code).catch(error => alert('Código inválido'));
+    }
+
+    // Observador de estado de sesión
+    auth.onAuthStateChanged(user => {
+      if (user) {
+        currentUser = user;
+        document.getElementById('auth-modal').classList.add('hidden');
+        document.getElementById('my-name').innerText = user.displayName || user.phoneNumber || 'Usuario';
+        document.getElementById('my-avatar').src = user.photoURL || 'https://via.placeholder.com/40';
+
+        // Guardar o actualizar datos de usuario en Firestore
+        db.collection('users').doc(user.uid).set({
+          uid: user.uid,
+          name: user.displayName || user.phoneNumber || 'Usuario',
+          photo: user.photoURL || 'https://via.placeholder.com/40',
+          phone: user.phoneNumber || ''
+        }, { merge: true });
+
+        loadUsers();
+      } else {
+        document.getElementById('auth-modal').classList.remove('hidden');
+      }
+    });
+
+    function logout() {
+      auth.signOut();
+    }
+
+    // -------------------------------------------------------------
+    // COMUNICACIÓN Y CHAT EN TIEMPO REAL
+    // -------------------------------------------------------------
+
+    // Cargar lista de contactos disponibles desde Firestore
+    function loadUsers() {
+      db.collection('users').onSnapshot(snapshot => {
+        const contactsList = document.getElementById('contacts-list');
+        contactsList.innerHTML = '';
+
+        snapshot.forEach(doc => {
+          const userData = doc.data();
+          if (userData.uid !== currentUser.uid) {
+            const item = document.createElement('div');
+            item.className = 'contact-item';
+            item.onclick = () => selectContact(userData);
+            item.innerHTML = `
+              <img class="user-avatar" src="${userData.photo}" alt="">
+              <div class="contact-info">
+                <div class="contact-name">${userData.name}</div>
+              </div>
+            `;
+            contactsList.appendChild(item);
+          }
+        });
+      });
+    }
+
+    // Seleccionar contacto para chatear
+    function selectContact(user) {
+      selectedUser = user;
+      document.getElementById('chat-title').innerText = user.name;
+      document.getElementById('chat-avatar').src = user.photo;
+      loadMessages();
+    }
+
+    // Generar un ID único para la conversación entre dos usuarios
+    function getChatRoomId() {
+      return currentUser.uid < selectedUser.uid 
+        ? `${currentUser.uid}_${selectedUser.uid}` 
+        : `${selectedUser.uid}_${currentUser.uid}`;
+    }
+
+    // Escuchar mensajes en tiempo real
+    function loadMessages() {
+      if (!selectedUser) return;
+      
+      // Cancelar suscripción previa si existe
+      if (unsubscribeMessages) unsubscribeMessages();
+
+      const roomId = getChatRoomId();
+      
+      unsubscribeMessages = db.collection('chats').doc(roomId)
+        .collection('messages')
+        .orderBy('timestamp', 'asc')
+        .onSnapshot(snapshot => {
+          const container = document.getElementById('messages-container');
+          container.innerHTML = '';
+
+          snapshot.forEach(doc => {
+            const msg = doc.data();
+            const msgDiv = document.createElement('div');
+            const isMe = msg.senderId === currentUser.uid;
+            
+            msgDiv.className = `message ${isMe ? 'msg-sent' : 'msg-received'}`;
+            msgDiv.innerText = msg.text;
+            container.appendChild(msgDiv);
+          });
+
+          container.scrollTop = container.scrollHeight;
+        });
+    }
+
+    // Enviar mensaje
+    function sendMessage() {
+      const input = document.getElementById('message-input');
+      const text = input.value.trim();
+
+      if (!text || !selectedUser) return;
+
+      const roomId = getChatRoomId();
+
+      db.collection('chats').doc(roomId).collection('messages').add({
+        senderId: currentUser.uid,
+        receiverId: selectedUser.uid,
+        text: text,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+
+      input.value = '';
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') sendMessage();
+    }
+  </script>
+</body>
+</html>
